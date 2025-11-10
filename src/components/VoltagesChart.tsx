@@ -50,20 +50,17 @@ function Toolbar({ onToggleBand, bandActive, hostRef }: ToolbarProps) {
           aria-label={bandActive ? "Ocultar banda" : "Mostrar banda"}
           aria-checked={bandActive}
           role="switch"
-          className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[11px] leading-none border border-white/10 bg-transparent hover:border-white/25 hover:bg-white/5 transition-colors text-gray-100"
-          style={{
-            pointerEvents: "auto",
-            borderColor: bandActive
-              ? "rgba(255,255,255,0.35)"
-              : "rgba(255,255,255,0.10)",
-            background: bandActive ? "rgba(255,255,255,0.06)" : "transparent",
-          }}
+          className={`rounded-md border px-3 py-1 text-[11px] font-medium transition-colors ${
+            bandActive
+              ? "bg-yellow-100 border-yellow-300 text-yellow-700"
+              : "bg-white/70 border-gray-300 text-gray-700 hover:bg-white"
+          }`}
+          style={{ pointerEvents: "auto" }}
         >
           <span
             aria-hidden
-            className="inline-block h-2.5 w-4 rounded-sm border"
+            className="inline-block h-2.5 w-4 rounded-sm border border-yellow-400"
             style={{
-              borderColor: "rgba(234,179,8,0.9)",
               background: bandActive ? "rgba(234,179,8,0.28)" : "transparent",
             }}
           />
@@ -82,7 +79,7 @@ function ExpandButton({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
       title="Ampliar"
       aria-label="Ampliar"
-      className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[11px] leading-none border border-white/10 bg-transparent hover:border-white/25 hover:bg-white/5 transition-colors text-gray-100"
+      className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white/70 px-2.5 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-white transition-colors"
       style={{ pointerEvents: "auto" }}
     >
       <svg
@@ -128,22 +125,22 @@ export default function VoltagesChart({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [fsHeight, setFsHeight] = useState<number>(720);
 
-  // --- Colores ---
+  // --- Colores (SOLO estilos) ---
   const colors = useMemo(() => {
     const css =
       typeof window !== "undefined"
         ? getComputedStyle(document.documentElement)
         : null;
     return {
-      paper: css?.getPropertyValue("--third-paper").trim() || "#0b1220",
-      plot: css?.getPropertyValue("--third-plot").trim() || "#151b2e",
-      text: css?.getPropertyValue("--third-text").trim() || "#e5e7eb",
-      grid: css?.getPropertyValue("--third-grid").trim() || "#2a3552",
-      range:
-        css?.getPropertyValue("--third-range-selector").trim() || "#1f2a44",
-      rangeActive:
-        css?.getPropertyValue("--third-range-active").trim() || "#253250",
-      rangeStroke: "rgba(255,255,255,0.20)",
+      paper: css?.getPropertyValue("--color-panel-bg").trim() || "#f8f9fa",
+      plot:
+        css?.getPropertyValue("--color-panel-bg").trim() ||
+        "rgba(255,255,255,0.9)",
+      text: "#374151",
+      grid: "#e2e8f0",
+      range: "#e5e7eb",
+      rangeActive: "#d1d5db",
+      rangeStroke: "rgba(0,0,0,0.15)",
     };
   }, []);
 
@@ -181,7 +178,6 @@ export default function VoltagesChart({
   }, []);
 
   // === AUTOSCALE DINÁMICO EN FUNCIÓN DEL RANGO VISIBLE ===
-  // Calcula min/max SOLO con puntos dentro de xRangeFollow (30s/1m/5m).
   const visibleYRange: [number, number] | null = useMemo(() => {
     if (!xRangeFollow) return null;
 
@@ -197,10 +193,18 @@ export default function VoltagesChart({
       const t = row.ts;
       if (t < start || t > end) continue;
 
-      const v1 = Number.isFinite(row["L1-N"]) ? (row["L1-N"] as number) : undefined;
-      const v2 = Number.isFinite(row["L2-N"]) ? (row["L2-N"] as number) : undefined;
-      const v3 = Number.isFinite(row["L3-N"]) ? (row["L3-N"] as number) : undefined;
-      const vp = Number.isFinite(row.Promedio) ? (row.Promedio as number) : undefined;
+      const v1 = Number.isFinite(row["L1-N"])
+        ? (row["L1-N"] as number)
+        : undefined;
+      const v2 = Number.isFinite(row["L2-N"])
+        ? (row["L2-N"] as number)
+        : undefined;
+      const v3 = Number.isFinite(row["L3-N"])
+        ? (row["L3-N"] as number)
+        : undefined;
+      const vp = Number.isFinite(row.Promedio)
+        ? (row.Promedio as number)
+        : undefined;
 
       if (typeof v1 === "number") {
         if (v1 < minVal) minVal = v1;
@@ -530,7 +534,6 @@ export default function VoltagesChart({
           font: { size: 12, color: colors.text },
           standoff: 16,
         },
-        // AUTOSCALE: respeta yRange (prop); si no, usa visibleYRange; si tampoco, autorange
         range: yRange ?? visibleYRange ?? undefined,
         autorange: yRange ? false : visibleYRange ? false : true,
         gridcolor: colors.grid,
@@ -556,8 +559,9 @@ export default function VoltagesChart({
         y: 0.5,
         yanchor: "middle",
         font: { size: 11, color: colors.text },
-        bgcolor: "rgba(0,0,0,0)",
-        borderwidth: 0,
+        bgcolor: "rgba(255,255,255,0.72)",
+        bordercolor: "#d1d5db",
+        borderwidth: 1,
         itemsizing: "constant",
         tracegroupgap: 6,
         itemwidth: 48,
@@ -709,9 +713,9 @@ export default function VoltagesChart({
           ? Math.min(plotRightX - 36, legendRect.right - rootRect.left + 8)
           : Math.min(plotRightX - 36, rootRect.width - (legendWidth + 8));
 
-        modebar.style.top = `${topPx}px`;
-        modebar.style.left = `${leftPx}px`;
-        modebar.style.transform = "translateY(-50%)";
+  modebar.style.top = `${topPx}px`;
+  modebar.style.left = `${leftPx}px`;
+  modebar.style.transform = "translateY(-50%)";
 
         const btns = modebar.querySelectorAll<HTMLElement>(".modebar-btn");
         btns.forEach((b) => {

@@ -1,21 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  /* Tema claro (default) */
+  /* ===== Tema claro (default) ===== */
   --background: #ffffff;
   --foreground: #000000;
 
+  /* Paleta base original */
   --primary: #174d80;
   --secondary: #66b39f;
+
+  /* === Paleta extendida para dashboard industrial === */
+  --panel-bg: #ffffff;
+  --panel-border: #e2e8f0;
+  --panel-shadow: rgba(0, 0, 0, 0.08);
+
+  /* Verdes institucionales */
+  --green-dark: #0f3d3e; /* fondo principal del dashboard */
+  --green-medium: #1a5d57; /* acentos */
+  --green-light: #4caf50; /* detalles o indicadores activos */
+
+  /* Grises neutros */
+  --gray-soft: #f5f6f7; /* fondo del cuerpo */
+  --gray-medium: #cbd5e1;
+  --gray-dark: #334155;
 }
 
 .dark {
-  /* Tema oscuro */
+  /* ===== Tema oscuro ===== */
   --background: #0a0a0a;
   --foreground: #f5f5f5;
 
   --primary: #1e90ff;
   --secondary: #20c997;
+
+  /* Ajustes coherentes con modo oscuro */
+  --panel-bg: #1e1e1e;
+  --panel-border: #2d2d2d;
+  --panel-shadow: rgba(0, 0, 0, 0.5);
+
+  --green-dark: #0f3d3e;
+  --green-medium: #22766e;
+  --green-light: #58d68d;
+
+  --gray-soft: #181818;
+  --gray-medium: #404040;
+  --gray-dark: #b0b0b0;
 }
 
 @theme inline {
@@ -23,6 +52,19 @@
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
+
+  /* Extras del dashboard (seguros, no rompen build) */
+  --color-panel-bg: var(--panel-bg);
+  --color-panel-border: var(--panel-border);
+  --color-panel-shadow: var(--panel-shadow);
+
+  --color-green-dark: var(--green-dark);
+  --color-green-medium: var(--green-medium);
+  --color-green-light: var(--green-light);
+
+  --color-gray-soft: var(--gray-soft);
+  --color-gray-medium: var(--gray-medium);
+  --color-gray-dark: var(--gray-dark);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

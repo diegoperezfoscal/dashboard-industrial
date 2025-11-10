@@ -10,11 +10,8 @@ import GeneralStatusCard from "./GeneralStatusCard";
 import BreakerCard from "./BreakerCard";
 import CurrentsChart from "./CurrentsChart";
 import VoltagesChart from "./VoltagesChart";
-import PhaseAnglesRadar from "./PhaseAnglesRadar";
-import SequenceBars from "./SequenceBars";
-import TemperatureBars from "./TemperatureBars";
 
-/* ============ INTERFACES SIMPLIFICADAS ============ */
+/* ============ TIPOS ============ */
 interface VariableData {
   value: number | boolean;
   timestamp: string;
@@ -29,21 +26,16 @@ interface IoTData {
       potencia_aparente?: VariableData;
       factor_potencia?: VariableData;
       frecuencia?: VariableData;
+
       corriente_L1?: VariableData;
       corriente_L2?: VariableData;
       corriente_L3?: VariableData;
+      promedio_corrientes?: VariableData;
+
       voltage_L1_N?: VariableData;
       voltage_L2_N?: VariableData;
       voltage_L3_N?: VariableData;
-      promedio_corrientes?: VariableData;
       promedio_voltajes?: VariableData;
-      angulo_fase_A?: VariableData;
-      angulo_fase_B?: VariableData;
-      angulo_fase_C?: VariableData;
-      secuencia_positiva?: VariableData;
-      secuencia_negativa?: VariableData;
-      secuencia_zero?: VariableData;
-      desbalance_corriente?: VariableData;
     };
     busbar?: { frecuencia?: VariableData };
     breaker: {
@@ -61,11 +53,63 @@ interface IoTData {
   };
 }
 
-/* ============ CONFIGURACIÓN ============ */
-const BUFFER_SIZE = 80; // ~1 minuto si llegan cada 0.75s
+/* ============ BUFFER ============ */
+const BUFFER_SIZE = 80;
+
 interface BufferPoint {
   time: number;
   value: Record<string, number>;
+}
+
+type Row = { idx: number; ts: number } & Record<string, number>;
+
+/* ============ Card con “base” ancha y píldora verde ============ */
+function Card({
+  title,
+  children,
+  className = "",
+}: {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={[
+        // Fondo menos brillante (gris suave, como la imagen)
+        "relative rounded-2xl bg-[var(--gray-soft)]",
+        "border border-[var(--color-panel-border)] shadow-lg",
+        // sutil separación interna
+        "px-3 pb-3 pt-6",
+        className,
+      ].join(" ")}
+    >
+      {/* BASE amplia (pestaña gris) */}
+      <div className="absolute -top-4 left-5">
+        <div
+          className={[
+            "h-8 rounded-full",
+            // gris clarito, ancho mayor para parecerse al ejemplo
+            "bg-[rgba(0,0,0,0.06)]",
+            "backdrop-blur-[1px]",
+            "px-6",
+            "inline-flex items-center shadow-sm",
+          ].join(" ")}
+          style={{ minWidth: 160 }}
+        >
+          {/* PÍLDORA verde encima */}
+          <div className="inline-flex items-center rounded-full bg-[var(--green-medium)] text-white px-4 py-1 font-semibold uppercase tracking-wide text-[11px] relative -top-[2px] shadow">
+            {title}
+          </div>
+        </div>
+      </div>
+
+      {/* Contenido */}
+      <div className="mt-2 rounded-xl bg-white/70 p-3">
+        {children}
+      </div>
+    </div>
+  );
 }
 
 export default function GPC300Dashboard() {
@@ -74,14 +118,16 @@ export default function GPC300Dashboard() {
     corriente: BufferPoint[];
     voltaje: BufferPoint[];
   }>({ corriente: [], voltaje: [] });
+
   const [connected, setConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  /* ============ FUNCIONES DE BUFFER ============ */
+  /* ============ ACTUALIZAR BUFFER ============ */
   const updateBuffer = useCallback((msg: IoTData) => {
     const gen = msg.data.generator;
     const t = Date.now();
+
     setBuffer((prev) => {
       const append = (arr: BufferPoint[], value: Record<string, number>) =>
         [...arr, { time: t, value }].slice(-BUFFER_SIZE);
@@ -103,7 +149,7 @@ export default function GPC300Dashboard() {
     });
   }, []);
 
-  /* ============ SSE CONEXIÓN REAL ============ */
+  /* ============ SSE ============ */
   useEffect(() => {
     const es = new EventSource("/api/iot/stream");
     es.onopen = () => {
@@ -116,11 +162,14 @@ export default function GPC300Dashboard() {
     };
     es.onmessage = (e) => {
       try {
-        const msg = JSON.parse(e.data);
-        if (msg.type) return; // saltar mensajes de control
-        setData(msg);
+        const msg: unknown = JSON.parse(e.data);
+        if (typeof msg === "object" && msg !== null && "type" in (msg as Record<string, unknown>)) {
+          return;
+        }
+        const casted = msg as IoTData;
+        setData(casted);
         setLastUpdate(new Date());
-        updateBuffer(msg);
+        updateBuffer(casted);
       } catch (err) {
         console.error(err);
       }
@@ -128,120 +177,79 @@ export default function GPC300Dashboard() {
     return () => es.close();
   }, [updateBuffer]);
 
-  
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const gen = (data?.data?.generator ?? {}) as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const breaker = (data?.data?.breaker ?? {}) as any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const temp = (data?.data?.temperature ?? {}) as any;
-
-  const corrienteData: Array<{ idx: number; ts: number } & Record<string, number>> =
-  buffer.corriente.map((p, i) => ({
+  /* ============ FILAS PARA GRÁFICAS ============ */
+  const corrienteData: Row[] = buffer.corriente.map((p, i) => ({
     idx: i,
-    ts: p.time,          // <-- IMPORTANTE: timestamp en ms
-    ...p.value
-  }));
-  const voltajeData: Array<{ idx: number; ts: number } & Record<string, number>> =
-  buffer.voltaje.map((p, i) => ({
-    idx: i,
-    ts: p.time,          // <-- IMPORTANTE: timestamp en ms
-    ...p.value
+    ts: p.time,
+    ...p.value,
   }));
 
-  const faseData = [
-    { fase: "A", valor: getNumericValue(gen.angulo_fase_A) || 0 },
-    { fase: "B", valor: getNumericValue(gen.angulo_fase_B) || 0 },
-    { fase: "C", valor: getNumericValue(gen.angulo_fase_C) || 0 },
-  ];
-  const secuenciaData = [
-    { name: "Positiva", value: getNumericValue(gen.secuencia_positiva) || 0 },
-    { name: "Negativa", value: getNumericValue(gen.secuencia_negativa) || 0 },
-    { name: "Zero", value: getNumericValue(gen.secuencia_zero) || 0 },
-  ];
-  const tempData = [
-    { name: "Devanado U", value: getNumericValue(temp.devanado_u) || 0 },
-    { name: "Devanado V", value: getNumericValue(temp.devanado_v) || 0 },
-    { name: "Devanado W", value: getNumericValue(temp.devanado_w) || 0 },
-    {
-      name: "Rod. Delantero",
-      value: getNumericValue(temp.rodamiento_delantero) || 0,
-    },
-    {
-      name: "Rod. Trasero",
-      value: getNumericValue(temp.rodamiento_trasero) || 0,
-    },
-  ];
+  const voltajeData: Row[] = buffer.voltaje.map((p, i) => ({
+    idx: i,
+    ts: p.time,
+    ...p.value,
+  }));
 
   /* ============ RENDER ============ */
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4">
-      {/* Conexión SSE: indicador no bloqueante */}
+    <div className="min-h-screen p-6 bg-gradient-to-b from-[var(--green-dark)] via-[var(--gray-soft)] to-[var(--gray-soft)] text-gray-900">
+      {/* Estado conexión */}
       <div className="absolute right-6 top-6 z-50">
         <div
-          className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${
-            error ? 'bg-red-600 text-white' : (connected ? 'bg-green-600 text-white' : 'bg-yellow-600 text-black')
+          className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium shadow-md ${
+            error
+              ? "bg-red-600 text-white"
+              : connected
+              ? "bg-[var(--green-light)] text-white"
+              : "bg-yellow-500 text-black"
           }`}
+          title={lastUpdate ? `Última: ${lastUpdate.toLocaleTimeString()}` : ""}
         >
-          <Activity className={`w-4 h-4 ${connected ? 'animate-pulse text-white' : ''}`} />
-          <span>
-            {error ? error : (connected ? 'Conectado' : 'Conectando...')}
-          </span>
+          <Activity className={`w-4 h-4 ${connected ? "animate-pulse" : ""}`} />
+          <span>{error ? error : connected ? "Conectado" : "Conectando..."}</span>
         </div>
       </div>
+
+      {/* Header superior (se conserva) */}
       <HeaderStatus
         title="DASHBOARD GPC-300"
         subtitle="Generador Principal - Estado Actual"
         lastUpdate={lastUpdate}
       />
 
-      {/* PANEL 1: ESTADO GENERAL */}
+      {/* PANEL 1: ESTADO GENERAL (se conserva) */}
       <div className="grid grid-cols-12 gap-4 mb-4">
-        <div className="col-span-12 lg:col-span-8 bg-gray-800 p-4 rounded-lg border border-gray-700">
+        <Card title="Estado General" className="col-span-12 lg:col-span-8">
           <GeneralStatusCard
-            activa={getNumericValue(gen.potencia_activa) || 0}
-            reactiva={getNumericValue(gen.potencia_reactiva) || 0}
-            aparente={getNumericValue(gen.potencia_aparente) || 0}
-            fp={(getNumericValue(gen.factor_potencia) || 0) * 100}
+            activa={getNumericValue(data?.data.generator.potencia_activa) || 0}
+            reactiva={getNumericValue(data?.data.generator.potencia_reactiva) || 0}
+            aparente={getNumericValue(data?.data.generator.potencia_aparente) || 0}
+            fp={(getNumericValue(data?.data.generator.factor_potencia) || 0) * 100}
           />
-        </div>
+        </Card>
 
-        <div className="col-span-12 lg:col-span-4 bg-gray-800 p-4 rounded-lg border border-gray-700">
+        <Card title="Breaker" className="col-span-12 lg:col-span-4">
           <BreakerCard
-            closed={!!getBooleanValue(breaker.closed)}
-            ok={!!getBooleanValue(breaker.voltage_freq_ok)}
-            fault={!!getBooleanValue(breaker.fault)}
-            frecuencia={getNumericValue(gen.frecuencia) || 0}
+            closed={!!getBooleanValue(data?.data.breaker.closed)}
+            ok={!!getBooleanValue(data?.data.breaker.voltage_freq_ok)}
+            fault={!!getBooleanValue(data?.data.breaker.fault)}
+            frecuencia={getNumericValue(data?.data.generator.frecuencia) || 0}
           />
+        </Card>
+      </div>
+
+      {/* PANEL 2: SOLO CORRIENTE Y VOLTAJE (lo demás se elimina) */}
+      <Card title="Mediciones Eléctricas" className="mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card title="Corriente">
+            <CurrentsChart data={corrienteData} height={360} />
+          </Card>
+
+          <Card title="Voltaje">
+            <VoltagesChart data={voltajeData} height={360} />
+          </Card>
         </div>
-      </div>
-
-      {/* === PANEL 2A: CORRIENTES === */}
-      <div className="bg-gray-800 p-4 mb-4 rounded-lg border border-gray-700">
-        <h2 className="text-xl font-semibold mb-2">Corrientes (Tiempo Real)</h2>
-        <CurrentsChart data={corrienteData} height={340} />
-      </div>
-
-      {/* === PANEL 2B: VOLTAJES === */}
-      <div className="bg-gray-800 p-4 mb-4 rounded-lg border border-gray-700">
-        <h2 className="text-xl font-semibold mb-2">Voltajes (Tiempo Real)</h2>
-        <VoltagesChart data={voltajeData} height={340} />
-      </div>
-
-      {/* PANEL 3: FASES Y SECUENCIAS */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-          <PhaseAnglesRadar data={faseData} />
-        </div>
-        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-          <SequenceBars data={secuenciaData} />
-        </div>
-      </div>
-
-      {/* PANEL 4: TEMPERATURAS */}
-      <div className="bg-gray-800 p-4 rounded-lg border border-gray-700">
-        <TemperatureBars data={tempData} />
-      </div>
+      </Card>
     </div>
   );
 }

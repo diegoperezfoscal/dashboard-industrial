@@ -50,20 +50,17 @@ function Toolbar({ onToggleBand, bandActive, hostRef }: ToolbarProps) {
           aria-label={bandActive ? "Ocultar banda" : "Mostrar banda"}
           aria-checked={bandActive}
           role="switch"
-          className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[11px] leading-none border border-white/10 bg-transparent hover:border-white/25 hover:bg-white/5 transition-colors text-gray-100"
-          style={{
-            pointerEvents: "auto",
-            borderColor: bandActive
-              ? "rgba(255,255,255,0.35)"
-              : "rgba(255,255,255,0.10)",
-            background: bandActive ? "rgba(255,255,255,0.06)" : "transparent",
-          }}
+          className={`rounded-md border px-3 py-1 text-[11px] font-medium transition-colors ${
+            bandActive
+              ? "bg-yellow-100 border-yellow-300 text-yellow-700"
+              : "bg-white/70 border-gray-300 text-gray-700 hover:bg-white"
+          }`}
+          style={{ pointerEvents: "auto" }}
         >
           <span
             aria-hidden
-            className="inline-block h-2.5 w-4 rounded-sm border"
+            className="inline-block h-2.5 w-4 rounded-sm border border-yellow-400"
             style={{
-              borderColor: "rgba(234,179,8,0.9)",
               background: bandActive ? "rgba(234,179,8,0.28)" : "transparent",
             }}
           />
@@ -82,7 +79,7 @@ function ExpandButton({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
       title="Ampliar"
       aria-label="Ampliar"
-      className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[11px] leading-none border border-white/10 bg-transparent hover:border-white/25 hover:bg-white/5 transition-colors text-gray-100"
+      className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white/70 px-2.5 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-white transition-colors"
       style={{ pointerEvents: "auto" }}
     >
       <svg
@@ -128,22 +125,23 @@ export default function CurrentsChart({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [fsHeight, setFsHeight] = useState<number>(720);
 
-  // --- Colores ---
+  // --- Colores (SOLO estilos) ---
   const colors = useMemo(() => {
     const css =
       typeof window !== "undefined"
         ? getComputedStyle(document.documentElement)
         : null;
     return {
-      paper: css?.getPropertyValue("--third-paper").trim() || "#0b1220",
-      plot: css?.getPropertyValue("--third-plot").trim() || "#151b2e",
-      text: css?.getPropertyValue("--third-text").trim() || "#e5e7eb",
-      grid: css?.getPropertyValue("--third-grid").trim() || "#2a3552",
-      range:
-        css?.getPropertyValue("--third-range-selector").trim() || "#1f2a44",
-      rangeActive:
-        css?.getPropertyValue("--third-range-active").trim() || "#253250",
-      rangeStroke: "rgba(255,255,255,0.20)",
+      // fondos claros y texto gris (parecido a la imagen)
+      paper: css?.getPropertyValue("--color-panel-bg").trim() || "#f8f9fa",
+      plot:
+        css?.getPropertyValue("--color-panel-bg").trim() ||
+        "rgba(255,255,255,0.9)",
+      text: "#374151",
+      grid: "#e2e8f0",
+      range: "#e5e7eb",
+      rangeActive: "#d1d5db",
+      rangeStroke: "rgba(0,0,0,0.15)",
     };
   }, []);
 
@@ -181,10 +179,7 @@ export default function CurrentsChart({
   }, []);
 
   // === AUTOSCALE DINÁMICO EN FUNCIÓN DEL RANGO VISIBLE ===
-  // Calcula min/max SOLO con puntos que están dentro de xRangeFollow (30s/1m/5m).
-  // Si followSec === null ("Todo"), no fuerza range y deja autorange.
   const visibleYRange: [number, number] | null = useMemo(() => {
-    // Si no hay ventana activa, no aplicamos autoscale "forzado"
     if (!xRangeFollow) return null;
 
     const [x0, x1] = xRangeFollow;
@@ -202,7 +197,9 @@ export default function CurrentsChart({
       const v1 = Number.isFinite(row.L1) ? (row.L1 as number) : undefined;
       const v2 = Number.isFinite(row.L2) ? (row.L2 as number) : undefined;
       const v3 = Number.isFinite(row.L3) ? (row.L3 as number) : undefined;
-      const vp = Number.isFinite(row.Promedio) ? (row.Promedio as number) : undefined;
+      const vp = Number.isFinite(row.Promedio)
+        ? (row.Promedio as number)
+        : undefined;
 
       if (typeof v1 === "number") {
         if (v1 < minVal) minVal = v1;
@@ -222,16 +219,11 @@ export default function CurrentsChart({
       }
     }
 
-    // Si no hubo datos en la ventana, no forzamos range (caerá en autorange)
     if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) return null;
-
-    // Evitar rango colapsado (min == max) en caso borde
     if (minVal === maxVal) {
       const delta = Math.max(1, Math.abs(minVal) * 0.01);
       return [minVal - delta, maxVal + delta];
     }
-
-    // *** Sin padding adicional: el menor y el mayor quedan en los bordes ***
     return [minVal, maxVal];
   }, [data, xRangeFollow]);
 
@@ -387,7 +379,7 @@ export default function CurrentsChart({
         mode: "lines",
         name: "L1",
         showlegend: true,
-        line: { color: "#3b82f6", width: 1.8, shape: "spline", simplify: true },
+        line: { color: "#1d4ed8", width: 1.8, shape: "spline", simplify: true },
         hovertemplate: "%{y:.2f} A<extra>L1</extra>",
       },
       {
@@ -397,7 +389,7 @@ export default function CurrentsChart({
         mode: "lines",
         name: "L2",
         showlegend: true,
-        line: { color: "#ef4444", width: 1.8, shape: "spline", simplify: true },
+        line: { color: "#f59e0b", width: 1.8, shape: "spline", simplify: true },
         hovertemplate: "%{y:.2f} A<extra>L2</extra>",
       },
       {
@@ -407,7 +399,7 @@ export default function CurrentsChart({
         mode: "lines",
         name: "L3",
         showlegend: true,
-        line: { color: "#22c55e", width: 1.8, shape: "spline", simplify: true },
+        line: { color: "#10b981", width: 1.8, shape: "spline", simplify: true },
         hovertemplate: "%{y:.2f} A<extra>L3</extra>",
       },
       {
@@ -418,7 +410,7 @@ export default function CurrentsChart({
         name: "Promedio",
         showlegend: true,
         line: {
-          color: "#eab308",
+          color: "#6b7280",
           width: 1.8,
           dash: "dash",
           shape: "spline",
@@ -548,7 +540,7 @@ export default function CurrentsChart({
           font: { size: 12, color: colors.text },
           standoff: 16,
         },
-        // AUTOSCALE: si yRange (prop) viene, respétalo; si no, usa visibleYRange; si tampoco, autorange
+        // AUTOSCALE
         range: yRange ?? visibleYRange ?? undefined,
         autorange: yRange ? false : visibleYRange ? false : true,
         gridcolor: colors.grid,
@@ -563,7 +555,7 @@ export default function CurrentsChart({
         spikemode: "toaxis+across",
         spikesnap: "cursor",
         spikethickness: 1,
-        spikedash: "dot",
+        spikeddash: "dot",
       },
       shapes: thrShapes,
       annotations: thrAnnotations,
@@ -574,8 +566,9 @@ export default function CurrentsChart({
         y: 0.5,
         yanchor: "middle",
         font: { size: 11, color: colors.text },
-        bgcolor: "rgba(0,0,0,0)",
-        borderwidth: 0,
+        bgcolor: "rgba(255,255,255,0.72)",
+        bordercolor: "#d1d5db",
+        borderwidth: 1,
         itemsizing: "constant",
         tracegroupgap: 6,
         itemwidth: 48,
@@ -591,7 +584,7 @@ export default function CurrentsChart({
       xRangeFollow,
       thrShapes,
       thrAnnotations,
-      visibleYRange, // <— clave para el autoscale
+      visibleYRange,
     ]
   );
 
@@ -636,9 +629,9 @@ export default function CurrentsChart({
           ? Math.min(plotRightX - 36, legendRect.right - rootRect.left + 8)
           : Math.min(plotRightX - 36, rootRect.width - (legendWidth + 8));
 
-        modebar.style.top = `${topPx}px`;
-        modebar.style.left = `${leftPx}px`;
-        modebar.style.transform = "translateY(-50%)";
+  modebar.style.top = `${topPx}px`;
+  modebar.style.left = `${leftPx}px`;
+  modebar.style.transform = "translateY(-50%)";
 
         const btns = modebar.querySelectorAll<HTMLElement>(".modebar-btn");
         btns.forEach((b) => {
@@ -727,9 +720,9 @@ export default function CurrentsChart({
           ? Math.min(plotRightX - 36, legendRect.right - rootRect.left + 8)
           : Math.min(plotRightX - 36, rootRect.width - (legendWidth + 8));
 
-        modebar.style.top = `${topPx}px`;
-        modebar.style.left = `${leftPx}px`;
-        modebar.style.transform = "translateY(-50%)";
+  modebar.style.top = `${topPx}px`;
+  modebar.style.left = `${leftPx}px`;
+  modebar.style.transform = "translateY(-50%)";
 
         const btns = modebar.querySelectorAll<HTMLElement>(".modebar-btn");
         btns.forEach((b) => {
