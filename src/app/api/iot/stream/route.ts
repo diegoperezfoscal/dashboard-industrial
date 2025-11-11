@@ -1,12 +1,11 @@
 // src/app/api/iot/stream/route.ts
 import { NextRequest } from 'next/server';
-import mqtt from 'mqtt';
+import { mqtt, io, iot, auth } from 'aws-iot-device-sdk-v2';
 import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
 } from '@aws-sdk/client-cognito-identity-provider';
 import { fromCognitoIdentityPool } from '@aws-sdk/credential-providers';
-import * as crypto from 'crypto';
 
 const AWS_CONFIG = {
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-1',
@@ -19,72 +18,27 @@ const AWS_CONFIG = {
   password: '@Ad12962108',
 };
 
-function sha256(data: string | Buffer): Buffer {
-  return crypto.createHash('sha256').update(data).digest();
-}
-
-function hmac(key: Buffer, data: string): Buffer {
-  return crypto.createHmac('sha256', key).update(data).digest();
-}
-
-function getSignatureKey(key: string, dateStamp: string, regionName: string, serviceName: string): Buffer {
-  const kDate = hmac(Buffer.from('AWS4' + key, 'utf-8'), dateStamp);
-  const kRegion = hmac(kDate, regionName);
-  const kService = hmac(kRegion, serviceName);
-  const kSigning = hmac(kService, 'aws4_request');
-  return kSigning;
-}
-
-async function getSignedUrl(endpoint: string, region: string, creds: { accessKeyId: string; secretAccessKey: string; sessionToken?: string }): Promise<string> {
-  const datetime = new Date().toISOString().replace(/[:-]/g, '').split('.')[0] + 'Z';
-  const date = datetime.slice(0, 8);
-  const algorithm = 'AWS4-HMAC-SHA256';
-  const credentialScope = `${date}/${region}/iotdevicegateway/aws4_request`;
-
-  const params: Record<string, string> = {
-    'X-Amz-Algorithm': algorithm,
-    'X-Amz-Credential': `${creds.accessKeyId}/${credentialScope}`,
-    'X-Amz-Date': datetime,
-    'X-Amz-SignedHeaders': 'host',
-  };
-
-  if (creds.sessionToken) {
-    params['X-Amz-Security-Token'] = creds.sessionToken;
-  }
-
-  const canonicalQuery = new URLSearchParams(params).toString().replace(/\+/g, '%20');
-  const canonicalHeaders = `host:${endpoint}\n`;
-  const payloadHash = sha256('').toString('hex');
-  const canonicalRequest = `GET\n/mqtt\n${canonicalQuery}\n${canonicalHeaders}\nhost\n${payloadHash}`;
-  const requestHash = sha256(canonicalRequest).toString('hex');
-  const stringToSign = `${algorithm}\n${datetime}\n${credentialScope}\n${requestHash}`;
-  const signingKey = getSignatureKey(creds.secretAccessKey, date, region, 'iotdevicegateway');
-  const signature = hmac(signingKey, stringToSign).toString('hex');
-
-  const signedQuery = `${canonicalQuery}&X-Amz-Signature=${signature}`;
-  return `wss://${endpoint}/mqtt?${signedQuery}`;
-}
-
-// Singleton para la conexión MQTT
-let mqttClient: mqtt.MqttClient | null = null;
+// Singleton para mantener una sola conexión MQTT
+let mqttConnection: mqtt.MqttClientConnection | null = null;
 let isConnecting = false;
 
-async function getMqttClient() {
-  if (mqttClient && mqttClient.connected) {
-    return mqttClient;
+async function getIoTConnection() {
+  if (mqttConnection) {
+    return mqttConnection;
   }
 
   if (isConnecting) {
+    // Esperar a que termine la conexión en curso
     await new Promise(resolve => setTimeout(resolve, 1000));
-    return getMqttClient();
+    return getIoTConnection();
   }
 
   isConnecting = true;
 
   try {
-    console.log('Obteniendo credenciales...');
-
-    // 1. Autenticación Cognito
+    console.log('🔄 Obteniendo ID Token...');
+    
+    // 1. Obtener ID Token
     const cognitoClient = new CognitoIdentityProviderClient({
       region: AWS_CONFIG.region,
     });
@@ -103,97 +57,111 @@ async function getMqttClient() {
     const idToken = authResponse.AuthenticationResult?.IdToken;
     if (!idToken) throw new Error('No ID token');
 
-    // 2. Credenciales temporales
+    console.log('✅ ID Token obtenido');
+
+    // 2. Obtener credenciales AWS
     const providerName = `cognito-idp.${AWS_CONFIG.region}.amazonaws.com/${AWS_CONFIG.userPoolId}`;
     const credentialsProvider = fromCognitoIdentityPool({
       identityPoolId: AWS_CONFIG.identityPoolId,
       clientConfig: { region: AWS_CONFIG.region },
-      logins: { [providerName]: idToken },
+      logins: {
+        [providerName]: idToken,
+      },
     });
 
     const creds = await credentialsProvider();
+    console.log('✅ Credenciales AWS obtenidas');
 
-    if (!creds.accessKeyId || !creds.secretAccessKey) {
-      throw new Error('Credenciales incompletas');
-    }
+    // 3. Configurar conexión MQTT
+    const clientBootstrap = new io.ClientBootstrap();
+    
+    const credProvider = auth.AwsCredentialsProvider.newStatic(
+      creds.accessKeyId,
+      creds.secretAccessKey,
+      creds.sessionToken
+    );
 
-    // 3. Generar URL firmada
-    const signedUrl = await getSignedUrl(AWS_CONFIG.iotEndpoint, AWS_CONFIG.region, {
-      accessKeyId: creds.accessKeyId,
-      secretAccessKey: creds.secretAccessKey,
-      sessionToken: creds.sessionToken,
+    const configBuilder = iot.AwsIotMqttConnectionConfigBuilder.new_with_websockets({
+      region: AWS_CONFIG.region,
+      credentials_provider: credProvider,
     });
 
-    // 4. Conectar con mqtt.js
-    mqttClient = mqtt.connect(signedUrl, {
-      clientId: `dashboard-backend-${Date.now()}`,
-      keepalive: 60,
-      reconnectPeriod: 1000,
-      protocol: 'wss',
-      clean: true,
+    const config = configBuilder
+      .with_clean_session(true)
+      .with_client_id(`dashboard-backend-${Date.now()}`)
+      .with_endpoint(AWS_CONFIG.iotEndpoint)
+      .with_keep_alive_seconds(60)
+      .build();
+
+    const client = new mqtt.MqttClient(clientBootstrap);
+    mqttConnection = client.new_connection(config);
+
+    // Eventos de conexión
+    mqttConnection.on('error', (error) => {
+      console.error('❌ Error MQTT:', error);
+      mqttConnection = null;
     });
 
-    await new Promise((resolve, reject) => {
-      mqttClient!.on('connect', () => {
-        console.log('✅ Conectado a IoT Core vía WebSocket');
-        resolve(null);
-      });
-      mqttClient!.on('error', (err: Error) => {
-        console.error('❌ Error MQTT:', err);
-        reject(err);
-      });
-    });
-
-    mqttClient.on('disconnect', () => {
+    mqttConnection.on('disconnect', () => {
       console.warn('⚠️ Desconectado');
-      mqttClient = null;
+      mqttConnection = null;
     });
+
+    // 4. Conectar
+    await mqttConnection.connect();
+    console.log('✅ Conectado a IoT Core');
 
     isConnecting = false;
-    return mqttClient;
+    return mqttConnection;
 
   } catch (error) {
-    console.error('❌ Error conectando MQTT:', error);
+    console.error('❌ Error conectando:', error);
     isConnecting = false;
-    mqttClient = null;
+    mqttConnection = null;
     throw error;
   }
 }
 
-// SSE API Route
+// API Route con Server-Sent Events (SSE)
 export async function GET(request: NextRequest) {
   console.log('📡 Nueva conexión SSE solicitada');
 
   const encoder = new TextEncoder();
 
+  // Configurar SSE
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const client = await getMqttClient();
+        // Obtener conexión MQTT
+        const connection = await getIoTConnection();
 
-        // Suscribirse
-        client.subscribe(AWS_CONFIG.topic, { qos: 0 }, (err: Error | null) => {
-          if (err) {
-            console.error('❌ Error suscripción:', err);
-          } else {
-            console.log('✅ Suscrito a:', AWS_CONFIG.topic);
+        // Suscribirse al topic
+        await connection.subscribe(
+          AWS_CONFIG.topic,
+          mqtt.QoS.AtMostOnce,
+          (topic: string, payload: ArrayBuffer) => {
+            try {
+              const decoder = new TextDecoder('utf-8');
+              const messageStr = decoder.decode(payload);
+              
+              // Enviar mensaje al cliente vía SSE
+              const data = `data: ${messageStr}\n\n`;
+              controller.enqueue(encoder.encode(data));
+              
+              console.log('📨 Mensaje enviado al cliente');
+            } catch (error) {
+              console.error('❌ Error procesando mensaje:', error);
+            }
           }
-        });
+        );
 
-        // Forward mensajes
-        const messageHandler = (topic: string, message: Buffer) => {
-          const data = `data: ${message.toString()}\n\n`;
-          controller.enqueue(encoder.encode(data));
-          console.log('📨 Mensaje enviado al cliente');
-        };
+        console.log('✅ Suscrito a topic:', AWS_CONFIG.topic);
 
-        client.on('message', messageHandler);
-
-        // Mensaje inicial
+        // Enviar mensaje inicial de conexión
         const initialMessage = `data: ${JSON.stringify({ type: 'connected', timestamp: new Date().toISOString() })}\n\n`;
         controller.enqueue(encoder.encode(initialMessage));
 
-        // Heartbeat
+        // Heartbeat cada 30 segundos para mantener conexión viva
         const heartbeatInterval = setInterval(() => {
           try {
             const heartbeat = `data: ${JSON.stringify({ type: 'heartbeat', timestamp: new Date().toISOString() })}\n\n`;
@@ -206,7 +174,6 @@ export async function GET(request: NextRequest) {
         // Cleanup al cerrar conexión
         request.signal.addEventListener('abort', () => {
           console.log('🔌 Cliente desconectado');
-          client.removeListener('message', messageHandler);
           clearInterval(heartbeatInterval);
           controller.close();
         });
