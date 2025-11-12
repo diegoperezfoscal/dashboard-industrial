@@ -39,38 +39,41 @@ export const DEFAULT_CURRENT_MAX = 1500;
 
 type Label = "30s" | "1m" | "5m" | "Todo";
 
+type Palette = {
+  range: string;
+  rangeActive: string;
+  rangeStroke: string;
+  text: string;
+};
+
 type ToolbarProps = {
   onToggleBand: () => void;
   bandActive: boolean;
   hostRef: React.RefObject<HTMLDivElement | null>;
+  palette: Palette;
 };
 
-function Toolbar({ onToggleBand, bandActive, hostRef }: ToolbarProps) {
+function Toolbar({ onToggleBand, bandActive, hostRef, palette }: ToolbarProps) {
+  const { range, rangeActive, rangeStroke, text } = palette;
+
   return (
     <div ref={hostRef}>
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onToggleBand}
-          title={bandActive ? "Ocultar banda" : "Mostrar banda"}
-          aria-label={bandActive ? "Ocultar banda" : "Mostrar banda"}
-          aria-checked={bandActive}
-          role="switch"
-          className={`rounded-md border px-3 py-1 text-[11px] font-medium transition-colors ${
-            bandActive
-              ? "bg-yellow-100 border-yellow-300 text-yellow-700"
-              : "bg-white/70 border-gray-300 text-gray-700 hover:bg-white"
-          }`}
-          style={{ pointerEvents: "auto" }}
+    title={bandActive ? "Hide band" : "Show band"}
+    aria-label={bandActive ? "Hide band" : "Show band"}
+          aria-pressed={bandActive}
+          className="inline-flex items-center justify-center select-none rounded-[4px] h-[26px] px-2 text-[12px] font-medium transition-colors border outline-none focus-visible:ring-2 focus-visible:ring-offset-0"
+          style={{
+            backgroundColor: bandActive ? rangeActive : range,
+            borderColor: rangeStroke,
+            color: text,
+            boxShadow: bandActive ? "inset 0 0 0 1px rgba(0,0,0,0.06)" : "none",
+          }}
         >
-          <span
-            aria-hidden
-            className="inline-block h-2.5 w-4 rounded-sm border border-yellow-400"
-            style={{
-              background: bandActive ? "rgba(234,179,8,0.28)" : "transparent",
-            }}
-          />
-          <span className="font-medium">Banda</span>
+          <span className="leading-none">Band</span>
         </button>
       </div>
     </div>
@@ -80,20 +83,22 @@ function Toolbar({ onToggleBand, bandActive, hostRef }: ToolbarProps) {
 function ExpandButton({ onOpen }: { onOpen: () => void }) {
   return (
     <button
-      type="button"
-      onClick={onOpen}
-      title="Ampliar"
-      aria-label="Ampliar"
-      className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white/70 px-2.5 py-1.5 text-[11px] font-medium text-gray-700 hover:bg-white transition-colors"
+  type="button"
+  onClick={onOpen}
+  title="Expand"
+  aria-label="Expand"
+      className="flex items-center justify-center rounded-md border border-gray-300 bg-white/70 w-[34px] h-[34px] text-gray-700 hover:bg-white hover:shadow-sm transition"
       style={{ pointerEvents: "auto" }}
     >
+      {/* Ícono 4 flechas desde el centro */}
       <svg
-        width="14"
-        height="14"
+        xmlns="http://www.w3.org/2000/svg"
+        width="18"
+        height="18"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden
@@ -103,7 +108,6 @@ function ExpandButton({ onOpen }: { onOpen: () => void }) {
         <path d="M21 3l-7 7" />
         <path d="M3 21l7-7" />
       </svg>
-      <span className="font-medium">Ampliar</span>
     </button>
   );
 }
@@ -140,7 +144,7 @@ export default function CurrentsChart({
         : null;
     return {
       paper: css?.getPropertyValue("--color-panel-bg").trim() || "#f8f9fa",
-      plot:"#F5F5F5",
+      plot: "#F5F5F5",
       text: "#374151",
       grid: "#e2e8f0",
       range: "#e5e7eb",
@@ -274,42 +278,41 @@ export default function CurrentsChart({
   );
 
   // === NUEVO: Reset a vista por defecto (1m + umbrales SIEMPRE visibles) ===
-const resetToDefaultView = useCallback(
-  (gd: PlotlyHTMLElement | null) => {
-    // 1) fijar ventana de 1m
-    setFollowSec(60);
+  const resetToDefaultView = useCallback(
+    (gd: PlotlyHTMLElement | null) => {
+      // 1) fijar ventana de 1m
+      setFollowSec(60);
 
-    // 2) calcular última ventana de 1m basada en el último dato disponible
-    const nowMs =
-      xDates.length > 0 ? xDates[xDates.length - 1].getTime() : Date.now();
-    const startMs = nowMs - 60_000;
+      // 2) calcular última ventana de 1m basada en el último dato disponible
+      const nowMs =
+        xDates.length > 0 ? xDates[xDates.length - 1].getTime() : Date.now();
+      const startMs = nowMs - 60_000;
 
-    // 3) Y por defecto = datos visibles EN 1m combinados con umbrales
-    const vis = computeYRangeForVisibleX(startMs, nowMs);
-    const yDef: [number, number] = vis
-      ? [Math.min(vis[0], yMin), Math.max(vis[1], yMax)]
-      : defaultYInit;
+      // 3) Y por defecto = datos visibles EN 1m combinados con umbrales
+      const vis = computeYRangeForVisibleX(startMs, nowMs);
+      const yDef: [number, number] = vis
+        ? [Math.min(vis[0], yMin), Math.max(vis[1], yMax)]
+        : defaultYInit;
 
-    // 4) Forzar Y por estado para que el render NO lo reemplace
-    setForcedY(yDef);
-    setInitialClamp(false);
-    setForceNonce((n) => n + 1);
+      // 4) Forzar Y por estado para que el render NO lo reemplace
+      setForcedY(yDef);
+      setInitialClamp(false);
+      setForceNonce((n) => n + 1);
 
-    // 5) Relayout directo (sin autorange) para no disparar autoscale
-    if (gd) {
-      const x0 = new Date(startMs);
-      const x1 = new Date(nowMs);
-      window.Plotly?.relayout(gd, {
-        "xaxis.autorange": false,
-        "xaxis.range": [x0, x1],
-        "yaxis.autorange": false,
-        "yaxis.range": yDef,
-      });
-    }
-  }, 
-  [xDates, computeYRangeForVisibleX, yMin, yMax, defaultYInit]
-);
-
+      // 5) Relayout directo (sin autorange) para no disparar autoscale
+      if (gd) {
+        const x0 = new Date(startMs);
+        const x1 = new Date(nowMs);
+        window.Plotly?.relayout(gd, {
+          "xaxis.autorange": false,
+          "xaxis.range": [x0, x1],
+          "yaxis.autorange": false,
+          "yaxis.range": yDef,
+        });
+      }
+    },
+    [xDates, computeYRangeForVisibleX, yMin, yMax, defaultYInit]
+  );
 
   // --- Rangeselector UI ---
   const paintButtons = useCallback(
@@ -445,19 +448,24 @@ const resetToDefaultView = useCallback(
   // --- Banda + líneas de umbral ---
   const thrShapes: Partial<Shape>[] = useMemo(() => {
     const shapes: Partial<Shape>[] = [];
+
+    // Banda entre umbrales
     if (showBand) {
       shapes.push({
         type: "rect",
         xref: "paper",
-        yref: "paper",
-        x0: 0, x1: 1,
-        y0: 0, y1: 1,
-        fillcolor: "rgba(0,0,0,0)",
-        line: { color: "#cbd5e1", width: 1.5 }, // borde visible
-        layer: "above"
+        x0: 0,
+        x1: 1,
+        yref: "y",
+        y0: yMin,
+        y1: yMax,
+        fillcolor: "rgba(234,179,8,0.10)",
+        line: { width: 0 },
+        layer: "below",
       });
     }
-    // líneas de umbral encima de todo
+
+    // Líneas de umbral
     shapes.push(
       {
         type: "line",
@@ -482,6 +490,7 @@ const resetToDefaultView = useCallback(
         layer: "above",
       }
     );
+
     return shapes;
   }, [yMin, yMax, showBand]);
 
@@ -510,12 +519,8 @@ const resetToDefaultView = useCallback(
       uirevision: `currents_v7_${yMin}_${yMax}_fs${followSec ?? "auto"}_${
         forcedY ? "forced" : initialClamp ? "init" : "dyn"
       }_${forceNonce}`,
-      margin: { l: 92, r: rightMargin, t: 86, b: 56 },
-      title: {
-        text: "Corrientes (Tiempo Real)",
-        font: { size: 16, color: colors.text },
-      },
-      autosize: false,
+      margin: { l: 60, r: 70, t: 40, b: 10 },
+      autosize: true,
       paper_bgcolor: colors.paper,
       plot_bgcolor: colors.plot,
       font: { color: colors.text },
@@ -588,18 +593,19 @@ const resetToDefaultView = useCallback(
       shapes: thrShapes,
       annotations: thrAnnotations,
       legend: {
-        orientation: "v",
-        x: 1,
-        xanchor: "left",
-        y: 0.5,
-        yanchor: "middle",
+        orientation: "h",
+        x: 0.5,
+        xanchor: "center",
+        y: -0.86,
+        yanchor: "top",
+        traceorder: "normal",
         font: { size: 11, color: colors.text },
-        bgcolor: "rgba(255,255,255,0.72)",
+        bgcolor: "rgba(255,255,255,0.85)",
         bordercolor: "#d1d5db",
         borderwidth: 1,
         itemsizing: "constant",
-        tracegroupgap: 6,
-        itemwidth: 48,
+        itemwidth: 68,
+        tracegroupgap: 10,
       },
     };
   }, [
@@ -607,7 +613,6 @@ const resetToDefaultView = useCallback(
     yMax,
     followSec,
     colors,
-    rightMargin,
     yRange,
     xRangeFollow,
     thrShapes,
@@ -628,11 +633,6 @@ const resetToDefaultView = useCallback(
     if (!root) return;
 
     let resizeTimer: number | null = null;
-
-    const getLegendRect = (): DOMRect | null => {
-      const legend = root.querySelector<SVGGElement>(".legend");
-      return legend ? legend.getBoundingClientRect() : null;
-    };
 
     // 👉 engancha el botón Reset axes para forzar nuestra vista por defecto
     const bindResetAxes = () => {
@@ -655,13 +655,12 @@ const resetToDefaultView = useCallback(
       const modebar = root.querySelector<HTMLElement>(".modebar");
       const bandaHost = bandaBtnRef.current;
       const rootRect = root.getBoundingClientRect();
-      const legendRect = getLegendRect();
 
-      const legendWidth = Math.max(140, Math.floor(legendRect?.width ?? 160));
-      const extraForModebar = 44;
-      const computedRight = Math.min(320, legendWidth + extraForModebar + 12);
-      if (computedRight !== rightMargin) setRightMargin(computedRight);
+      // Margen derecho fijo
+      const desiredRight = 96;
+      if (rightMargin !== desiredRight) setRightMargin(desiredRight);
 
+      // ⬇️ Columna del modebar ANCLADA arriba-derecha (dejamos espacio para el botón Ampliar)
       if (modebar) {
         modebar.style.display = "flex";
         modebar.style.flexDirection = "column";
@@ -672,15 +671,10 @@ const resetToDefaultView = useCallback(
         modebar.style.padding = "0";
         modebar.style.willChange = "transform";
 
-        const topPx = rootRect.height / 2;
-        const plotRightX = rootRect.width - 8;
-        const leftPx = legendRect
-          ? Math.min(plotRightX - 36, legendRect.right - rootRect.left + 8)
-          : Math.min(plotRightX - 36, rootRect.width - (legendWidth + 8));
-
-        modebar.style.top = `${topPx}px`;
+        const leftPx = Math.max(0, rootRect.width - 36 - 8); // 36=btn, 8=padding
+        modebar.style.top = `${8 + 40}px`; // 40px de holgura para nuestro botón "Ampliar" encima
         modebar.style.left = `${leftPx}px`;
-        modebar.style.transform = "translateY(-50%)";
+        modebar.style.transform = "none";
 
         const btns = modebar.querySelectorAll<HTMLElement>(".modebar-btn");
         btns.forEach((b) => {
@@ -692,28 +686,16 @@ const resetToDefaultView = useCallback(
         });
       }
 
+      // Botón Banda: arriba-izquierda (diseño igual al rangeselector)
       if (bandaHost) {
         bandaHost.style.position = "absolute";
         bandaHost.style.zIndex = "10";
         bandaHost.style.pointerEvents = "auto";
-
-        if (legendRect) {
-          const btnRect = bandaHost.getBoundingClientRect();
-          const desiredLeft = legendRect.left - rootRect.left;
-          const desiredTop = Math.max(
-            8,
-            legendRect.top - rootRect.top - (btnRect.height || 36) - 8
-          );
-          bandaHost.style.left = `${desiredLeft}px`;
-          bandaHost.style.top = `${desiredTop}px`;
-        } else {
-          bandaHost.style.right = "16px";
-          bandaHost.style.top = "12px";
-          bandaHost.style.left = "auto";
-        }
+        bandaHost.style.left = "8px";
+        bandaHost.style.top = "4px";
       }
 
-      // asegurar el hook del Reset axes cada vez que reubicamos la modebar
+      // Reenganchar Reset axes
       bindResetAxes();
     };
 
@@ -740,11 +722,6 @@ const resetToDefaultView = useCallback(
 
     let resizeTimer: number | null = null;
 
-    const getLegendRect = (): DOMRect | null => {
-      const legend = root.querySelector<SVGGElement>(".legend");
-      return legend ? legend.getBoundingClientRect() : null;
-    };
-
     const bindResetAxesFS = () => {
       const modebar = root.querySelector<HTMLElement>(".modebar");
       const resetBtn = modebar?.querySelector<HTMLElement>(
@@ -765,13 +742,12 @@ const resetToDefaultView = useCallback(
       const modebar = root.querySelector<HTMLElement>(".modebar");
       const bandaHost = fsBandaBtnRef.current;
       const rootRect = root.getBoundingClientRect();
-      const legendRect = getLegendRect();
 
-      const legendWidth = Math.max(160, Math.floor(legendRect?.width ?? 180));
-      const extraForModebar = 44;
-      const computedRight = Math.min(360, legendWidth + extraForModebar + 12);
-      if (computedRight !== fsRightMargin) setFsRightMargin(computedRight);
+      // Margen derecho fijo en fullscreen
+      const desiredRight = 112;
+      if (fsRightMargin !== desiredRight) setFsRightMargin(desiredRight);
 
+      // ⬇️ Columna del modebar anclada arriba-derecha (con espacio para Ampliar)
       if (modebar) {
         modebar.style.display = "flex";
         modebar.style.flexDirection = "column";
@@ -782,15 +758,10 @@ const resetToDefaultView = useCallback(
         modebar.style.padding = "0";
         modebar.style.willChange = "transform";
 
-        const topPx = rootRect.height / 2;
-        const plotRightX = rootRect.width - 8;
-        const leftPx = legendRect
-          ? Math.min(plotRightX - 36, legendRect.right - rootRect.left + 8)
-          : Math.min(plotRightX - 36, rootRect.width - (legendWidth + 8));
-
-  modebar.style.top = `${topPx}px`;
-  modebar.style.left = `${leftPx}px`;
-  modebar.style.transform = "translateY(-50%)";
+        const leftPx = Math.max(0, rootRect.width - 36 - 8);
+        modebar.style.top = `${8 + 40}px`;
+        modebar.style.left = `${leftPx}px`;
+        modebar.style.transform = "none";
 
         const btns = modebar.querySelectorAll<HTMLElement>(".modebar-btn");
         btns.forEach((b) => {
@@ -806,23 +777,11 @@ const resetToDefaultView = useCallback(
         bandaHost.style.position = "absolute";
         bandaHost.style.zIndex = "10";
         bandaHost.style.pointerEvents = "auto";
-
-        if (legendRect) {
-          const btnRect = bandaHost.getBoundingClientRect();
-          const desiredLeft = legendRect.left - rootRect.left;
-          const desiredTop = Math.max(
-            8,
-            legendRect.top - rootRect.top - (btnRect.height || 36) - 8
-          );
-          bandaHost.style.left = `${desiredLeft}px`;
-          bandaHost.style.top = `${desiredTop}px`;
-        } else {
-          bandaHost.style.right = "16px";
-          bandaHost.style.top = "12px";
-          bandaHost.style.left = "auto";
-        }
+        bandaHost.style.left = "8px";
+        bandaHost.style.top = "8px";
       }
 
+      // Reset axes (fullscreen)
       bindResetAxesFS();
     };
 
@@ -894,7 +853,7 @@ const resetToDefaultView = useCallback(
         style={{ background: "rgba(0,0,0,0.65)" }}
         role="dialog"
         aria-modal="true"
-        aria-label="Gráfica de Corrientes - Ampliada"
+        aria-label="Gráfica de Corrientes - Vista ampliada"
       >
         <div className="relative w-[min(1400px,95vw)] h-[min(90vh,900px)] rounded-xl border border-white/10 bg-[--third-paper] shadow-2xl">
           <div className="absolute left-0 right-0 top-0 h-12 flex items-center justify-between px-4 border-b border-white/10 bg-black/10 backdrop-blur">
@@ -902,12 +861,12 @@ const resetToDefaultView = useCallback(
               Corrientes (Tiempo Real) — Vista ampliada
             </div>
             <div className="flex items-center gap-2">
-              <button
+                <button
                 type="button"
                 onClick={() => setIsFullscreen(false)}
                 className="inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-[12px] leading-none border border-white/10 bg-transparent hover:border-white/25 hover:bg-white/5 transition-colors text-gray-100"
               >
-                Cerrar (Esc)
+                Close (Esc)
               </button>
             </div>
           </div>
@@ -916,7 +875,6 @@ const resetToDefaultView = useCallback(
             <div className="relative h-full w-full" ref={fsContainerRef}>
               <style>{`
                 g.rangeselector g.button.grt-active rect { outline: 1px solid rgba(255,255,255,0.25); }
-                g.rangeselector g.button text { pointer-events: none; }
               `}</style>
 
               <div className="absolute left-3 top-3" ref={fsBandaBtnRef}>
@@ -924,6 +882,12 @@ const resetToDefaultView = useCallback(
                   onToggleBand={() => setShowBand((v) => !v)}
                   bandActive={showBand}
                   hostRef={fsBandaBtnRef}
+                  palette={{
+                    range: colors.range,
+                    rangeActive: colors.rangeActive,
+                    rangeStroke: colors.rangeStroke,
+                    text: colors.text,
+                  }}
                 />
               </div>
 
@@ -963,7 +927,7 @@ const resetToDefaultView = useCallback(
                   }}
                   onAfterPlot={() => onAfterPlotCommon(fsContainerRef.current)}
                   onRelayout={(ev) => {
-                    // Mantén la lógica de autoscale (solo cuando autorange = true)
+                    // Autoscale (solo cuando autorange = true)
                     if (
                       ev &&
                       (("yaxis.autorange" in ev &&
@@ -1062,24 +1026,35 @@ const resetToDefaultView = useCallback(
 
   return (
     <>
-      <div
-        className="relative w-full"
-        ref={containerRef}
-      >
+      <div className="relative w-full" ref={containerRef}>
         <style>{`
           g.rangeselector g.button.grt-active rect { outline: 1px solid rgba(255,255,255,0.25); }
-          g.rangeselector g.button text { pointer-events: none; }
+          /* Importante: no bloquear clicks en los textos de los botones */
+          /* g.rangeselector g.button text { pointer-events: none; }  <-- Removido */
         `}</style>
 
-        <div className="absolute right-8 top-2 z-30">
-          <ExpandButton onOpen={() => setIsFullscreen(true)} />
+        {/* Botón Ampliar "como si fuera el primero" del modebar */}
+        <div
+          className="absolute right-2 top-2 z-30"
+          style={{ pointerEvents: "none" }}
+        >
+          <div style={{ pointerEvents: "auto" }}>
+            <ExpandButton onOpen={() => setIsFullscreen(true)} />
+          </div>
         </div>
 
+        {/* Botón Banda arriba-izquierda, con look del rangeselector */}
         <div className="absolute left-0 top-0 z-10" ref={bandaBtnRef}>
           <Toolbar
             onToggleBand={() => setShowBand((v) => !v)}
             bandActive={showBand}
             hostRef={bandaBtnRef}
+            palette={{
+              range: colors.range,
+              rangeActive: colors.rangeActive,
+              rangeStroke: colors.rangeStroke,
+              text: colors.text,
+            }}
           />
         </div>
 
@@ -1117,7 +1092,7 @@ const resetToDefaultView = useCallback(
             }}
             onAfterPlot={() => onAfterPlotCommon(containerRef.current)}
             onRelayout={(ev) => {
-              // Mantén la lógica de autoscale (solo cuando autorange = true)
+              // Autoscale (solo cuando autorange = true)
               if (
                 ev &&
                 (("yaxis.autorange" in ev &&

@@ -1,3 +1,4 @@
+// industrial-iot-lab/dashboard-industrial/src/components/Dashboard.tsx
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -54,7 +55,7 @@ interface IoTData {
 
 /* ============ BUFFER ============ */
 const MAX_HISTORIAL_MS = 10 * 60 * 1000;
-const MAX_RECONNECTIONS = 2; // 🔁 Intentos máximos de reconexión
+const MAX_RECONNECTIONS = 5;
 
 interface BufferPoint {
   time: number;
@@ -63,7 +64,7 @@ interface BufferPoint {
 
 type Row = { idx: number; ts: number } & Record<string, number>;
 
-/* ============ CARD COMPONENT ============ */
+/* ============ Card con TÍTULO INTERNO ============ */
 function Card({
   title,
   children,
@@ -74,35 +75,76 @@ function Card({
   className?: string;
 }) {
   return (
+<<<<<<< HEAD
     <div
       className={[
         "bg-white rounded-2xl",
-        "border border-[var(--color-panel-border)] shadow-lg",
+        "border border-[var(--color-panel-border)]",
         "overflow-hidden",
+        "shadow-[8px_8px_20px_rgba(0,0,0,0.18)]",
+        "hover:shadow-[10px_10px_25px_rgba(0,0,0,0.25)] transition-shadow duration-300",
         className,
       ].join(" ")}
     >
+      {/* Header */}
       <div className="px-0 py-0">
         <div className="relative inline-flex items-stretch h-8">
-          <div className="bg-[var(--green-dark)] text-white px-4 h-8 flex items-center">
+          {/* Bloque verde con borde solo inferior */}
+          <div className="bg-[var(--green-dark)] text-white px-16 h-8 flex items-center border-b-4 border-gray-400">
             <h3 className="text-[13px] font-bold uppercase tracking-wider leading-none">
               {title}
             </h3>
           </div>
-          <svg
-            className="h-8 w-9 -ml-px text-[var(--green-dark)]"
-            viewBox="0 0 44 32"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <path d="M0 0 L0 32 Q44 32 44 0 Z" fill="currentColor" />
-          </svg>
+
+          {/* Curva lateral */}
+          <div className="-ml-px h-8 w-9 bg-[var(--green-dark)] border-b-4 border-r-4 border-gray-400 rounded-br-[9999px]" />
         </div>
       </div>
 
-      <div className="px-2 pb-2 pt-1 md:px-3 md:pb-3 md:pt-1">{children}</div>
+      {/* Cuerpo */}
+      <div className="px-2 pb-2 pt-1 md:px-3 md:pb-3 md:pt-1">
+        {children}
+      </div>
     </div>
   );
+=======
+  <div
+  className={[
+    "bg-white rounded-2xl",
+    "border border-[var(--color-panel-border)]",
+    "overflow-hidden",
+    "shadow-[8px_8px_20px_rgba(0,0,0,0.18)]",
+    "hover:shadow-[10px_10px_25px_rgba(0,0,0,0.25)] transition-shadow duration-300",
+    className,
+  ].join(" ")}
+>
+    {/* Header — más compacto */}
+    <div className="px-0 py-0">
+  <div className="relative inline-flex items-stretch h-8">
+    {/* Bloque verde con borde solo inferior (2px) */}
+    <div className="bg-[var(--green-dark)] text-white px-16 h-8 flex items-center border-b-4 border-gray-400">
+  <h3 className="text-[13px] font-bold uppercase tracking-wider leading-none">
+    {title}
+  </h3>
+</div>
+
+    {/* Curva lateral con trazo SOLO en el borde inferior-derecha */}
+    <div
+  className="-ml-px h-8 w-9
+             bg-[var(--green-dark)]
+             border-b-4 border-r-4 border-gray-400
+             rounded-br-[9999px]"
+/>
+  </div>
+</div>
+
+    {/* Cuerpo — casi pegado (vertical) */}
+    <div className="px-2 pb-2 pt-1 md:px-3 md:pb-3 md:pt-1">
+      {children}
+    </div>
+  </div>
+);
+>>>>>>> 045d97e17a78534409d71e97be9f67c002187e87
 }
 
 /* ============ DASHBOARD ============ */
@@ -118,7 +160,7 @@ export default function GPC300Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const reconnectAttempts = useRef(0);
 
-  /* ============ BUFFER UPDATE ============ */
+  /* ============ ACTUALIZAR BUFFER ============ */
   const updateBuffer = useCallback((msg: IoTData) => {
     const gen = msg.data.generator;
     const ahora = Date.now();
@@ -150,6 +192,7 @@ export default function GPC300Dashboard() {
 
   /* ============ WEBSOCKET CONNECTION ============ */
   useEffect(() => {
+<<<<<<< HEAD
     const WEBSOCKET_URL =
       process.env.NEXT_PUBLIC_WEBSOCKET_URL ||
       "wss://657pcrk382.execute-api.us-east-1.amazonaws.com/production/";
@@ -185,6 +228,22 @@ export default function GPC300Dashboard() {
         } else {
           console.error("❌ Se alcanzó el número máximo de reconexiones");
           setError("Conexión fallida: límite de reconexiones alcanzado");
+=======
+    const es = new EventSource("/api/iot/stream");
+    es.onopen = () => {
+      setConnected(true);
+      setError(null);
+    };
+    es.onerror = () => {
+      setConnected(false);
+      setError("Connection error");
+    };
+    es.onmessage = (e) => {
+      try {
+        const msg: unknown = JSON.parse(e.data);
+        if (typeof msg === "object" && msg !== null && "type" in (msg as Record<string, unknown>)) {
+          return;
+>>>>>>> 045d97e17a78534409d71e97be9f67c002187e87
         }
       };
 
@@ -225,7 +284,7 @@ export default function GPC300Dashboard() {
     };
   }, [updateBuffer]);
 
-  /* ============ DATOS PARA GRÁFICAS ============ */
+  /* ============ FILAS PARA GRÁFICAS ============ */
   const corrienteData: Row[] = buffer.corriente.map((p, i) => ({
     idx: i,
     ts: p.time,
@@ -238,10 +297,21 @@ export default function GPC300Dashboard() {
     ...p.value,
   }));
 
-  /* ============ RENDER UI ============ */
+  /* ============ RENDER ============ */
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[var(--green-dark)] via-[var(--gray-soft)] to-[var(--gray-soft)] text-gray-900">
+<<<<<<< HEAD
+    <div
+      className="min-h-screen bg-white text-black overflow-x-hidden"
+      style={{ scrollbarGutter: "stable both-edges" }}
+    >
       {/* Estado conexión */}
+=======
+<div
+  className="min-h-screen bg-white text-black overflow-x-hidden"
+  style={{ scrollbarGutter: "stable both-edges" }}
+>
+        {/* Estado conexión */}
+>>>>>>> 045d97e17a78534409d71e97be9f67c002187e87
       <div className="absolute right-6 top-6 z-50">
         <div
           className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium shadow-md ${
@@ -251,29 +321,24 @@ export default function GPC300Dashboard() {
               ? "bg-[var(--green-light)] text-white"
               : "bg-yellow-500 text-black"
           }`}
-          title={lastUpdate ? `Última actualización: ${lastUpdate.toLocaleTimeString()}` : ""}
+          title={lastUpdate ? `Last: ${lastUpdate.toLocaleTimeString()}` : ""}
         >
           <Activity className={`w-4 h-4 ${connected ? "animate-pulse" : ""}`} />
-          <span>
-            {error
-              ? error
-              : connected
-              ? "Conectado"
-              : "Conectando..."}
-          </span>
+          <span>{error ? error : connected ? "Connected" : "Connecting..."}</span>
         </div>
       </div>
 
+      {/* Contenedor principal */}
       <div className="container mx-auto px-3 md:px-6 2xl:px-10 max-w-[1400px] xl:max-w-[1600px] 2xl:max-w-[1920px] py-3 md:py-4">
+        {/* Header superior */}
         <HeaderStatus
-          title="DASHBOARD GPC-300"
-          subtitle="Generador Principal - Estado Actual"
+          subtitle="Main Generator - Current Status"
           lastUpdate={lastUpdate}
         />
 
         {/* PANEL 1: ESTADO GENERAL + BREAKER */}
         <div className="grid grid-cols-12 gap-4 mb-3">
-          <Card title="Estado General" className="col-span-12 lg:col-span-8">
+          <Card title="General Status" className="col-span-12 lg:col-span-8">
             <GeneralStatusCard
               activa={getNumericValue(data?.data.generator.potencia_activa) || 0}
               reactiva={getNumericValue(data?.data.generator.potencia_reactiva) || 0}
@@ -294,11 +359,15 @@ export default function GPC300Dashboard() {
 
         {/* PANEL 2: CORRIENTE + VOLTAJE */}
         <div className="grid grid-cols-12 gap-4 mb-4">
-          <Card title="Corriente" className="col-span-12 lg:col-span-6 h-full">
+          <Card title="Current" className="col-span-12 lg:col-span-6 h-full">
+<<<<<<< HEAD
+=======
+            {/* Al compactar paddings arriba/abajo, compensa con un alto apenas mayor si quieres: 368 */}
+>>>>>>> 045d97e17a78534409d71e97be9f67c002187e87
             <CurrentsChart data={corrienteData} height={364} />
           </Card>
 
-          <Card title="Voltaje" className="col-span-12 lg:col-span-6 h-full">
+          <Card title="Voltage" className="col-span-12 lg:col-span-6 h-full">
             <VoltagesChart data={voltajeData} height={364} />
           </Card>
         </div>
