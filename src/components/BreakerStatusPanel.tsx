@@ -1,5 +1,6 @@
+//industrial-iot-lab\dashboard-industrial\src\components\BreakerStatusPanel.tsx
 'use client';
-import { useEffect, useState } from 'react';
+import {useState} from 'react';
 
 interface VariableData {
   value: number | boolean | string;

@@ -16,11 +16,27 @@ export default function GeneralStatusCard({ activa, reactiva, aparente, fp }: Pr
       <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
         <Zap className="w-5 h-5 text-yellow-400" /> INDICATORS
       </h2>
-      <div className="grid grid-cols-4 gap-4 text-center">
-        <div><p>Active</p><h3 className="text-2xl font-bold">{activa.toFixed(0)} kW</h3></div>
-        <div><p>Reactive</p><h3 className="text-2xl font-bold">{reactiva.toFixed(0)} kVAr</h3></div>
-        <div><p>Apparent</p><h3 className="text-2xl font-bold">{aparente.toFixed(0)} kVA</h3></div>
-        <div><p>PF</p><h3 className="text-2xl font-bold">{fp.toFixed(0)}%</h3></div>
+
+      {/* 3 filas, 4 columnas */}
+      <div className="grid grid-cols-4 gap-y-2 text-center">
+
+        {/* ---------- TITULOS ---------- */}
+        <p className="text-sm font-semibold text-gray-800">Active Power</p>
+        <p className="text-sm font-semibold text-gray-800">Reactive Power</p>
+        <p className="text-sm font-semibold text-gray-800">Apparent Power</p>
+        <p className="text-sm font-semibold text-gray-800">Power Factor</p>
+
+        {/* ---------- VALORES ---------- */}
+        <h3 className="text-3xl font-bold text-gray-900">{activa.toFixed(0)}</h3>
+        <h3 className="text-3xl font-bold text-gray-900">{reactiva.toFixed(0)}</h3>
+        <h3 className="text-3xl font-bold text-gray-900">{aparente.toFixed(0)}</h3>
+        <h3 className="text-3xl font-bold text-gray-900">{fp.toFixed(0)}%</h3>
+
+        {/* ---------- UNIDADES ---------- */}
+        <span className="text-sm font-medium text-gray-700">kW</span>
+        <span className="text-sm font-medium text-gray-700">kVAr</span>
+        <span className="text-sm font-medium text-gray-700">kVA</span>
+        <span className="text-sm font-medium text-gray-700"> </span>
       </div>
     </>
   );

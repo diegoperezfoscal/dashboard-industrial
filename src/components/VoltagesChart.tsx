@@ -34,8 +34,8 @@ type Props = {
   };
 };
 
-export const DEFAULT_VOLT_MIN = 180;
-export const DEFAULT_VOLT_MAX = 260;
+export const DEFAULT_VOLT_MIN = 2395;
+export const DEFAULT_VOLT_MAX = 2408;
 
 type Label = "30s" | "1m" | "5m" | "Todo";
 
@@ -518,7 +518,7 @@ export default function VoltagesChart({
       uirevision: `voltages_v7_${yMin}_${yMax}_fs${followSec ?? "auto"}_${
         forcedY ? "forced" : initialClamp ? "init" : "dyn"
       }_${forceNonce}`,
-      margin: { l: 50, r: 70, t: 40, b: 10 },
+      margin: { l: 60, r: 70, t: 40, b: 10 },
       autosize: true,
       paper_bgcolor: colors.paper,
       plot_bgcolor: colors.plot,

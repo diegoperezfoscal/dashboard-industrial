@@ -10,6 +10,7 @@ import GeneralStatusCard from "./GeneralStatusCard";
 import BreakerCard from "./BreakerCard";
 import CurrentsChart from "./CurrentsChart";
 import VoltagesChart from "./VoltagesChart";
+import KPIVoltage from "./KPIVoltage";
 
 /* ============ TIPOS ============ */
 interface VariableData {
@@ -36,6 +37,11 @@ interface IoTData {
       voltage_L2_N?: VariableData;
       voltage_L3_N?: VariableData;
       promedio_voltajes?: VariableData;
+
+      // Nuevos campos para KPI de tensiones línea-línea
+      voltage_L1_L2?: VariableData;
+      voltage_L2_L3?: VariableData;
+      voltage_L1_L3?: VariableData;
     };
     busbar?: { frecuencia?: VariableData };
     breaker: {
@@ -272,9 +278,10 @@ export default function GPC300Dashboard() {
           lastUpdate={lastUpdate}
         />
 
-        {/* PANEL 1: ESTADO GENERAL + BREAKER */}
+        {/* PANEL 1: ESTADO GENERAL + BREAKER + KPIs VOLTAJE */}
         <div className="grid grid-cols-12 gap-4 mb-3">
-          <Card title="General Status" className="col-span-12 lg:col-span-8">
+          {/* Más ancho a la izquierda */}
+          <Card title="General Status" className="col-span-12 sm:col-span-6 md:col-span-6 lg:col-span-4">
             <GeneralStatusCard
               activa={getNumericValue(data?.data.generator.potencia_activa) || 0}
               reactiva={getNumericValue(data?.data.generator.potencia_reactiva) || 0}
@@ -283,12 +290,27 @@ export default function GPC300Dashboard() {
             />
           </Card>
 
-          <Card title="Breaker" className="col-span-12 lg:col-span-4">
+          {/* Breaker más compacto al centro */}
+          <Card title="Breaker" className="col-span-12 sm:col-span-6 md:col-span-6 lg:col-span-2">
             <BreakerCard
               closed={!!getBooleanValue(data?.data.breaker.closed)}
               ok={!!getBooleanValue(data?.data.breaker.voltage_freq_ok)}
               fault={!!getBooleanValue(data?.data.breaker.fault)}
               frecuencia={getNumericValue(data?.data.generator.frecuencia) || 0}
+            />
+          </Card>
+
+          {/* Nuevo KPI de Tensiones a la derecha */}
+          <Card
+            title="Voltage KPIs"
+            className="col-span-12 md:col-span-12 lg:col-span-6"
+          >
+            <KPIVoltage
+              voltages={data?.data.generator ?? {}}
+              // Si quieres ajustar el valor nominal y tolerancias:
+              // expectedLineLine={400}
+              // warningTolerancePercent={5}
+              // dangerTolerancePercent={10}
             />
           </Card>
         </div>

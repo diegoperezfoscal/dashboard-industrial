@@ -34,8 +34,8 @@ type Props = {
   };
 };
 
-export const DEFAULT_CURRENT_MIN = 100;
-export const DEFAULT_CURRENT_MAX = 1500;
+export const DEFAULT_CURRENT_MIN = 80;
+export const DEFAULT_CURRENT_MAX = 120;
 
 type Label = "30s" | "1m" | "5m" | "Todo";
 
