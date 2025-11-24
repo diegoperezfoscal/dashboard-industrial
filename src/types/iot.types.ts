@@ -90,12 +90,56 @@ export interface TemperatureData {
   rodamiento_trasero?: VariableData;
 }
 
+// Datos de Cilindros del Motor (22 variables)
+export interface CylindersData {
+  Tem_Cyl_1?: VariableData;
+  Tem_Cyl_2?: VariableData;
+  Tem_Cyl_3?: VariableData;
+  Tem_Cyl_4?: VariableData;
+  Tem_Cyl_5?: VariableData;
+  Tem_Cyl_6?: VariableData;
+  Tem_Cyl_7?: VariableData;
+  Tem_Cyl_8?: VariableData;
+  Tem_Cyl_9?: VariableData;
+  Tem_Cyl_10?: VariableData;
+  Tem_Cyl_11?: VariableData;
+  Tem_Cyl_12?: VariableData;
+  Tem_Cyl_13?: VariableData;
+  Tem_Cyl_14?: VariableData;
+  Tem_Cyl_15?: VariableData;
+  Tem_Cyl_16?: VariableData;
+  Tem_Cyl_17?: VariableData;
+  Tem_Cyl_18?: VariableData;
+  Tem_Cyl_19?: VariableData;
+  Tem_Cyl_20?: VariableData;
+  Diferencia_temp_clynders?: VariableData;
+  Promedio_tem_cyl?: VariableData;
+}
+
+// Datos del Sistema de Enfriamiento (4 variables)
+export interface CoolingSystemData {
+  Temp_LT_salida?: VariableData;
+  T_HT_ENTRADA?: VariableData;
+  Tem_HT_ref_salida?: VariableData;
+  Presion_HT?: VariableData;
+}
+
+// Datos del Sistema de Aceite (3 variables)
+export interface OilSystemData {
+  Temperatura_aceite?: VariableData;
+  Tempe_filtro?: VariableData;
+  Presion_aceite?: VariableData;
+}
+
 // Estructura principal del payload
 export interface PLCData {
   generator?: GeneratorData;
   busbar?: BusbarData;
   breaker?: BreakerData;
   temperature?: TemperatureData;
+  cylinders?: CylindersData;          // ← NUEVO
+  cooling_system?: CoolingSystemData; // ← NUEVO
+  oil_system?: OilSystemData;         // ← NUEVO
 }
 
 /* ========= Metadatos de mensaje ========= */

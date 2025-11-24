@@ -34,7 +34,7 @@ export const useIoTConnection = (onMessage: (message: IoTMessage) => void) => {
       await iotService.connect(onMessageRef.current);
       setIsConnected(true);
       console.log('✅ Hook: Conexión establecida');
-    } catch (err) {
+    } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido';
       setError(errorMessage);
       setIsConnected(false);
